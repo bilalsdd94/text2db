@@ -1,0 +1,442 @@
+<!-- Create by BilSid , https://text2db.com/-->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Read Text File</title>
+</head>
+<body>
+    <div id="rates">
+        <input type="radio" id="MySql" name="db" value="MySql"  checked="true"> MySql
+        <input type="radio" id="MSSQL" name="db" value="MSSQL"> MSSQL
+        <input type="radio" id="PostgreSQL" name="db" value="PostgreSQL"> PostgreSQL
+        <input type="radio" id="Oracle" name="db" value="Oracle" disabled> Oracle (Coming Soon!)
+      </div>
+    <p>Please enter format in first text area</p>
+    <textarea id="simpleTextArea" style="width:1000px; height: 500px;"></textarea>
+    <button type="button" onclick="myConverter()" id="btnConvert">Convert -></button>      
+    <textarea id="scriptArea" readonly style="width:1000px; height: 500px;"></textarea>
+
+    <script type="text/javascript">
+        myConverter=()=>{            
+            var scriptArea = document.querySelector('#scriptArea');
+            var input = document.querySelector('#btnConvert');
+            //everytime button is clicked, refresh the script Area
+            document.getElementById("scriptArea").value = "";
+                   
+                var selectedDb;
+                if(document.querySelector('input[name="db"]:checked').value =="MySql") {   
+                    selectedDb = "MySql";    
+                } else if (document.querySelector('input[name="db"]:checked').value =="Oracle"){  
+                    selectedDb = "Oracle";
+                } 
+                else if (document.querySelector('input[name="db"]:checked').value =="MSSQL"){  
+                    selectedDb = "MSSQL";
+                }
+                else if (document.querySelector('input[name="db"]:checked').value =="PostgreSQL"){  
+                    selectedDb = "PostgreSQL";
+                }  
+                        
+            var symbolValues = document.getElementById("simpleTextArea").value;            
+            var data = symbolValues;                
+            
+            // below function alters console.log functionality, and prints it in text area instead of console
+        
+            (()=>{
+            const console_log = window.console.log;
+            window.console.log =(...args)=>{
+                var textarea = document.getElementById('scriptArea');
+                if(!textarea) return;
+                args.forEach(arg=>textarea.value += `${JSON.parse(JSON.stringify(arg))}\n`);
+            }})();
+
+            //regex to check if @ symbole is the first symbol
+            if( !((data.match(/@/g) || []).length == 1) ){
+                alert("@ value should be occur once only, please read sample text");
+                    return;
+            }
+            //Now checking for selected radio buttons
+
+            if(selectedDb == "MySql"){      
+                    //extracting db name based on @ symbol                             
+                    const dbName =(data.substring(data.indexOf("@") + 1,data.indexOf("#"))).trim();
+                    var queryDb = `CREATE DATABASE IF NOT EXISTS \`${dbName}\` DEFAULT CHARACTER SET utf8;`;
+                    var useDb = `USE \`${dbName}\`;`;                    
+                    
+                    console.log(queryDb);
+                    console.log(useDb);
+                    //getting all table names
+                    let tableNames = data.match(/#\w*/g);
+                    //making variable for checking duplicate table names
+                    let tableNamesFKDup = data.match(/\(\w*\)/g);
+                    //converting to set, to remove duplicate tables, then converting back to array again
+                    let tableNamesFK =  Array.from(new Set(tableNamesFKDup));
+                    var allTablesAddedb4 = [];
+                    var queryTableFK;
+                    //creates all table primary keys with auto increment 
+                    if(tableNamesFK != null){
+                        for(let i=0 ; i<tableNamesFK.length; i++){
+                                let tableFKi =tableNamesFK[i].substring(tableNamesFK[i].indexOf('(')+1, tableNamesFK[i].indexOf(')')) ;
+                                if(!allTablesAddedb4.includes(tableFKi)){
+                                    queryTableFK = `CREATE TABLE IF NOT EXISTS \`${dbName}\`.\`${tableFKi}\`( ${tableFKi}_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY);`;
+                                    console.log(queryTableFK);                       
+                                }
+                                allTablesAddedb4.push(tableFKi);                                                    
+                        }  
+                    }
+                    //replaces all special characters with empty
+                    data = data.replace(/\r?\n|\r|\t/g, "");    
+                    //splitting now on basis of #                
+                    alert(data,"new one");
+                    var forFKsplit= data.split("#");                                                       
+                    data = data.replace(/\(\w*\)/gi,'');
+                    var regExp = /\#([^)]+)/g;                   
+                    var matches = data.match(regExp);
+                    let myArray = matches[0].split("#");
+                    alert(myArray);
+                    myArray.shift();
+                    var regExpTable =  /^([^-]+)/;
+                    
+                    for(let i=0 ; i<myArray.length; i++){
+                            let table =myArray[i].substring(0, myArray[i].indexOf('-')) ;
+                            let sp = myArray[i].split('-');                         
+                            let arr = [];
+                            var queryTable;
+                            var queryTableAlter;
+                            let arr2 = []; 
+                            let arrFKAlter=[];
+                            let arr3FK= [];
+                            let arr3FKAlter = [];
+                            let fk = forFKsplit[i+1].split('-');  
+                            for(let j=0; j<sp.length-1 ;j++){
+                                arr.push(sp[j+1]);
+                                //if id is included in any of column type, then create it as int, as for all other data types use varchar                                                
+                                if(sp[j+1].includes("id")){
+                                    arr2.push(` ${sp[j+1]} INT`);
+                                }
+                                else{
+                                    if(fk[j+1] != (sp[j+1])){
+                                        arr2.push(` ${sp[j+1]} INT`);                                        
+                                    }
+                                    else{
+                                        arr2.push(` ${sp[j+1]} VARCHAR(50)`);
+                                    }
+                                }
+                                    //Foreign Key logic
+                                    if(fk[j+1] != (sp[j+1]) ){
+                                        let withBrackets = fk[j+1].match(/\((.*)\)/).pop();
+                                        if(arr3FK.length ==0){
+                                            arr3FK.push(`,FOREIGN KEY (${sp[j+1]}) REFERENCES ${withBrackets}(${withBrackets}_id)`);
+                                        }
+                                        else{
+                                            arr3FK.push(`FOREIGN KEY (${sp[j+1]}) REFERENCES ${withBrackets}(${withBrackets}_id)`);
+                                        }
+                                        if(arr3FKAlter.length ==0){
+                                            arr3FKAlter.push(`, ADD FOREIGN KEY (${sp[j+1]}) REFERENCES ${withBrackets}(${withBrackets}_id)`);
+                                        }
+                                        else{
+                                            arr3FKAlter.push(`ADD FOREIGN KEY (${sp[j+1]}) REFERENCES ${withBrackets}(${withBrackets}_id)`);
+
+                                        }
+                                    }                                
+                            }                               
+                                if(allTablesAddedb4.includes(table)){
+                                    arr2.forEach(e=>{
+                                        arrFKAlter.push(`ADD${e}`);                                        
+                                    });                                
+                                    queryTableAlter = `ALTER TABLE \`${dbName}\`.\`${table}\` ${arrFKAlter} ${arr3FKAlter};`
+                                    console.log(queryTableAlter);
+                                }
+                                else{
+                                    queryTable = `CREATE TABLE IF NOT EXISTS \`${dbName}\`.\`${table}\`( ${table}_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY ,${arr2}${arr3FK});`;
+                                    console.log(queryTable);                                    
+                                }                                                                        
+                    }                        
+            }            
+           
+            else if(selectedDb == "PostgreSQL"){                                  
+                                    const dbName = ((data.substring(data.indexOf("@") + 1,data.indexOf("#"))).trim()).toLowerCase();
+                                    var queryDb = `CREATE DATABASE ${dbName};`;
+                                    var useDb = `\\c ${dbName}`;
+                                  
+                                    console.log(queryDb);
+                                    console.log(useDb);
+                
+                                    let tableNames = data.match(/#\w*/g);
+                                    let tableNamesFKDup = data.match(/\(\w*\)/g);
+                                    let tableNamesFK =  Array.from(new Set(tableNamesFKDup));                
+                                    var allTablesAddedb4 = [];
+                                    var queryTableFK;
+                                    if(tableNamesFK != null){                
+                                        for(let i=0 ; i<tableNamesFK.length; i++){
+                                                let tableFKi =tableNamesFK[i].substring(tableNamesFK[i].indexOf('(')+1, tableNamesFK[i].indexOf(')')) ;
+                                                if(!allTablesAddedb4.includes(tableFKi)){                
+                                                    queryTableFK = `CREATE TABLE IF NOT EXISTS ${tableFKi}(${tableFKi}_id SERIAL PRIMARY KEY);`;
+                                                    console.log(queryTableFK);                       
+                                                }
+                                                allTablesAddedb4.push(tableFKi);                                                    
+                                        }  
+                                    }
+                                    data = data.replace(/\r?\n|\r|\t/g, "");                                    
+                                    var forFKsplit= data.split("#");                                                                           
+                                    data = data.replace(/\(\w*\)/gi,'');
+                                    var regExp = /\#([^)]+)/g;                   
+                                    var matches = data.match(regExp);                
+                                    let myArray = matches[0].split("#");                
+                                    myArray.shift();
+                                    var regExpTable =  /^([^-]+)/;
+                                    
+                                    for(let i=0 ; i<myArray.length; i++){
+                                            let table =myArray[i].substring(0, myArray[i].indexOf('-')) ;
+                                            let sp = myArray[i].split('-');                         
+                                            let arr = [];
+                                            var queryTable;
+                                            var queryTableAlter;
+                                            let arr2 = []; 
+                                            let arrFKAlter=[];
+                                            let arr3FK= [];
+                                            let arr3FKAlter = [];
+                                            let fk = forFKsplit[i+1].split('-');  
+
+                                            for(let j=0; j<sp.length-1 ;j++){
+                                                arr.push(sp[j+1]);                                                                                
+                                                if(sp[j+1].includes("id")){
+                                                    arr2.push(` ${sp[j+1]} INT`);
+                                                }
+                                                else{
+                                                    if(fk[j+1] != (sp[j+1])){
+                                                        arr2.push(` ${sp[j+1]} INT`);                                        
+                                                    }
+                                                    else
+                                                    {
+            
+                                                        arr2.push(` ${sp[j+1]} VARCHAR(50)`);
+                                                    }
+                                                }
+                
+                                                if(fk[j+1] != (sp[j+1]) ){
+                                                    let withBrackets = fk[j+1].match(/\((.*)\)/).pop();
+                                                    if(arr3FK.length ==0){
+                                                        arr3FK.push(`,FOREIGN KEY (${sp[j+1]}) REFERENCES ${withBrackets}(${withBrackets}_id)`);
+        
+                                                    }
+                                                    else{
+                                                        arr3FK.push(`FOREIGN KEY (${sp[j+1]}) REFERENCES ${withBrackets}(${withBrackets}_id)`);
+        
+                                                    }
+                                                    if(arr3FKAlter.length ==0){
+                                                        arr3FKAlter.push(`, ADD FOREIGN KEY (${sp[j+1]}) REFERENCES ${withBrackets}(${withBrackets}_id)`);
+        
+                                                    }
+                                                    else{
+                                                        arr3FKAlter.push(`ADD FOREIGN KEY (${sp[j+1]}) REFERENCES ${withBrackets}(${withBrackets}_id)`);
+        
+                                                    }
+                                                }
+                                            }                               
+                                                if(allTablesAddedb4.includes(table)){
+                                                    arr2.forEach(e=>{
+                                                        arrFKAlter.push(`ADD${e}`);                                                        
+                                                    });
+                                                    queryTableAlter = `ALTER TABLE ${table} ${arrFKAlter} ${arr3FKAlter};`
+                                                    console.log(queryTableAlter);
+                                                }
+                                                else{                
+                                                    queryTable = `CREATE TABLE IF NOT EXISTS ${table}(${table}_id SERIAL PRIMARY KEY ,${arr2}${arr3FK});`;
+                                                    console.log(queryTable);                                                    
+                                                }       
+                                    }                             
+                            }
+                                            
+            else if (selectedDb == "Oracle"){                                   
+                                    const dbName =(data.substring(data.indexOf("@") + 1,data.indexOf("#"))).trim();
+                                    var queryDb = `CREATE SCHEMA \`${dbName}\`;`;
+                                    var setSchema = `SET SCHEMA \`${dbName}\`;`;
+
+                                    console.log(queryDb);
+                                    console.log(setSchema);
+                
+                                    let tableNames = data.match(/#\w*/g);
+                                    let tableNamesFKDup = data.match(/\(\w*\)/g);
+                                    let tableNamesFK =  Array.from(new Set(tableNamesFKDup));
+                                    let tableNamesFKWithAll = data.match(/\w + \-\w*\)/g);
+                                    
+                                    var allTablesAddedb4 = [];
+                                    var queryTableFK;
+                                    
+                                    if(tableNamesFK != null){
+                
+                                        for(let i=0 ; i<tableNamesFK.length; i++){
+                                                let tableFKi =tableNamesFK[i].substring(tableNamesFK[i].indexOf('(')+1, tableNamesFK[i].indexOf(')')) ;
+                                                if(!allTablesAddedb4.includes(tableFKi)){
+                                                    queryTableFK = `CREATE TABLE \`${dbName}\`.\`${tableFKi}\`( ${tableFKi}_id INT NOT NULL PRIMARY KEY );`;
+                                                    console.log(queryTableFK);                                            
+                                                }
+                                                allTablesAddedb4.push(tableFKi);                                                    
+                                        }  
+                                    }
+                                    data = data.replace(/\r?\n|\r|\t/g, "");                                    
+                                    var forFKsplit= data.split("#");                                                                           
+                                    data = data.replace(/\(\w*\)/gi,'');
+                                    var regExp = /\#([^)]+)/g;                   
+                                    var matches = data.match(regExp);            
+                                    let myArray = matches[0].split("#");                
+                                    myArray.shift();
+                                    var regExpTable =  /^([^-]+)/;
+                                    
+                                    for(let i=0 ; i<myArray.length; i++){
+                                            let table =myArray[i].substring(0, myArray[i].indexOf('-')) ;
+                                            let sp = myArray[i].split('-');                         
+                                            let arr = [];
+                                            var queryTable;
+                                            var queryTableAlter;
+                                            let arr2 = []; 
+                                            let arrFKAlter=[];
+                                            let arr3FK= [];
+                                            let arr3FKAlter = [];
+                                            let fk = forFKsplit[i+1].split('-');  
+
+                                            for(let j=0; j<sp.length-1 ;j++){
+                                                arr.push(sp[j+1]);                                                                            
+                                                if(sp[j+1].includes("id")){ 
+                                                    arr2.push(` ${sp[j+1]} INT`);
+                                                }
+                                                else{
+                                                    if(fk[j+1] != (sp[j+1])){
+                                                    }
+                                                    else{            
+                                                        arr2.push(` ${sp[j+1]} VARCHAR2(50)`);
+                                                    }                                                                                                                                                         
+                                                }            
+                                                    if(fk[j+1] != (sp[j+1]) ){
+                                                        let withBrackets = fk[j+1].match(/\((.*)\)/).pop();
+                                                        if(arr3FK.length ==0){                                                            
+                                                            arr3FK.push(`, ${sp[j+1]} INT FOREIGN KEY REFERENCES ${withBrackets}(${withBrackets}_id)`);
+                                                        }
+                                                        else{
+                                                            arr3FK.push(`${sp[j+1]} INT FOREIGN KEY REFERENCES ${withBrackets}(${withBrackets}_id)`);                                                    
+                                                        }                                                        
+                                                        if(arr3FKAlter.length==0){                                                            
+                                                            arr3FKAlter.push(`, ADD FOREIGN KEY (${sp[j+1]}) REFERENCES ${withBrackets}(${withBrackets}_id)`);
+                                                        }
+                                                        else{
+                                                            arr3FKAlter.push(`ADD FOREIGN KEY (${sp[j+1]}) REFERENCES ${withBrackets}(${withBrackets}_id)`);
+                                                    
+                                                        }
+                                                    }                                                
+                                            }                               
+                                                if(allTablesAddedb4.includes(table)){
+                                                    arr2.forEach(e=>{
+                                                        arrFKAlter.push(`MODIFY${e}`);
+                                                        
+                                                    });
+                                                    queryTableAlter = `ALTER TABLE \`${dbName}\`.\`${table}\` ${arrFKAlter} ${arr3FKAlter};`
+                                                    console.log(queryTableAlter);
+                                                }
+                                                else{            
+                                                    queryTable = `CREATE TABLE \`${dbName}\`.\`${table}\`( ${table}_id INT NOT NULL PRIMARY KEY,${arr2}${arr3FK});`;
+                                                    console.log(queryTable);                                                    
+                                                }                                                                
+                                    }
+                
+            
+                            }
+                            
+        
+            else if (selectedDb == "MSSQL"){                                
+                        const dbName =(data.substring(data.indexOf("@") + 1,data.indexOf("#"))).trim();
+                        var queryDb = `IF NOT EXISTS(SELECT * FROM sys.databases WHERE name = \'${dbName}\') \n BEGIN CREATE DATABASE [${dbName}] \n END \n GO`;
+                        var setSchema = ` USE [${dbName}] \n GO `;
+
+                        console.log(queryDb);
+                        console.log(setSchema);
+
+                        let tableNames = data.match(/#\w*/g);
+                        let tableNamesFKDup = data.match(/\(\w*\)/g);
+                        let tableNamesFK =  Array.from(new Set(tableNamesFKDup));
+                        let tableNamesFKWithAll = data.match(/\w + \-\w*\)/g);
+                        
+                        var allTablesAddedb4 = [];
+                        var queryTableFK;                        
+                        if(tableNamesFK != null){
+
+                            for(let i=0 ; i<tableNamesFK.length; i++){
+                                    let tableFKi =tableNamesFK[i].substring(tableNamesFK[i].indexOf('(')+1, tableNamesFK[i].indexOf(')')) ;                                    
+                                    if(!allTablesAddedb4.includes(tableFKi)){
+                                        queryTableFK = `IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='${tableFKi}' and xtype='U') \n BEGIN \n  CREATE TABLE ${tableFKi} (${tableFKi}_id INT PRIMARY KEY IDENTITY (1, 1) ) \n END     `;
+                                        console.log(queryTableFK);                                            
+                                    }                                    
+                                    allTablesAddedb4.push(tableFKi);                                                    
+                            }  
+                        }
+
+                        data = data.replace(/\r?\n|\r|\t/g, "");                        
+                        var forFKsplit= data.split("#");                                                               
+                        data = data.replace(/\(\w*\)/gi,'');
+                        var regExp = /\#([^)]+)/g;                   
+                        var matches = data.match(regExp);                        
+                        let myArray = matches[0].split("#");
+                        myArray.shift();
+
+                        var regExpTable =  /^([^-]+)/;
+                        
+                        for(let i=0 ; i<myArray.length; i++){
+                                let table =myArray[i].substring(0, myArray[i].indexOf('-')) ;
+                                let sp = myArray[i].split('-');                         
+                                let arr = [];
+                                var queryTable;
+                                var queryTableAlter;
+                                let arr2 = []; 
+                                let arrFKAlter=[];
+                                let arr3FK= [];
+                                let arr3FKAlter = [];
+                                let fk = forFKsplit[i+1].split('-');  
+
+                                for(let j=0; j<sp.length-1 ;j++){
+                                    arr.push(sp[j+1]);                                                        
+                                    if(sp[j+1].includes("id")){                                                                                
+                                        arr2.push(` ${sp[j+1]} INT`);
+                                    }
+                                    else{
+                                            if(fk[j+1] != (sp[j+1])){
+                                            }
+                                            else{
+                                                arr2.push(` ${sp[j+1]} VARCHAR(50)`);
+                                            }                                                                                                                                     
+                                    }
+
+                                        if(fk[j+1] != (sp[j+1]) ){
+                                            let withBrackets = fk[j+1].match(/\((.*)\)/).pop();
+                                            if(arr3FK.length ==0){                                                
+                                                arr3FK.push(`, ${sp[j+1]} INT NOT NULL, constraint FK_${sp[j+1]} FOREIGN KEY (${sp[j+1]}) REFERENCES ${withBrackets}(${withBrackets}_id)`);                                            
+                                            }
+                                            else{
+                                                arr3FK.push(`${sp[j+1]} INT FOREIGN KEY REFERENCES ${withBrackets}(${withBrackets}_id)`);                                        
+                                            }                                            
+                                            if(arr3FKAlter.length==0){                                              
+                                                arr3FKAlter.push(`,FOREIGN KEY (${sp[j+1]}) REFERENCES ${withBrackets}(${withBrackets}_id)`);
+                                            }
+                                            else{
+                                                arr3FKAlter.push(`FOREIGN KEY (${sp[j+1]}) REFERENCES ${withBrackets}(${withBrackets}_id)`);                                        
+                                            }
+                                        }                                    
+                                }                               
+                                    if(allTablesAddedb4.includes(table)){
+                                        arr2.forEach(e=>{
+                                            arrFKAlter.push(`${e}`);
+                                            
+                                        });
+                                        queryTableAlter = `ALTER TABLE ${table} ADD \n ${arrFKAlter} ${arr3FKAlter};`
+                                        console.log(queryTableAlter);
+                                    }
+                                    else{
+                                        //note:  user is a restricted word in mssql
+                                        queryTable = `IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='${table}' and xtype='U') \n BEGIN \n  CREATE TABLE ${table} (${table}_id INT PRIMARY KEY IDENTITY (1, 1),${arr2}${arr3FK}) \n END \n GO    `;                                        
+                                        console.log(queryTable);                                        
+                                    }                                                                        
+                        }
+                }            
+        }
+    </script>
+</body>
+    
+</html>
