@@ -1,5 +1,6 @@
 # text2db
-Converts simple text to database script using pure javascript
+Converts simple text to database script using pure javascript 
+-Its still in beta version
 -To keep it simple, just run the converter.html file.
 -Please see example sample attached or visit the website/youtube for more information:
 
