@@ -1,0 +1,13 @@
+@MyShoppingCart
+ #users
+-first_name
+-last_name
+ 
+#vehicle
+-name
+-color(colors)
+-no_plate
+ 
+#suppliers
+-name(factory)
+-description 
