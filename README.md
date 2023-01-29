@@ -5,7 +5,7 @@ Converts simple text to database script using pure javascript
 -Please see example sample attached or visit the website/youtube for more information:
 
 Live version at
-https://text2db.com/
+https://web-platform-hxc9oz.stackblitz.io
 
 youtube tutorial
 https://www.youtube.com/watch?v=8hYtZ38wuz4
